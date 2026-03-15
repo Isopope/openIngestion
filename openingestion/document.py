@@ -1,16 +1,18 @@
 """Core data models for openingestion.
 
-Two immutable (or lightly mutable) dataclasses are defined here:
+Three dataclasses are defined here:
 
-- ``ContentBlock`` — a single semantic unit produced by a Chef.
-- ``RagChunk``     — a RAG-ready text chunk produced by a Chunker.
+- ``FetchedDocument`` — lightweight wrapper around a local path, produced by a Fetcher.
+- ``ContentBlock``    — a single semantic unit produced by a Chef.
+- ``RagChunk``        — a RAG-ready text chunk produced by a Chunker.
 
-Both share the same ``BlockKind`` enum so that kind information is
-preserved through the entire CHOMP pipeline.
+``BlockKind`` is shared across ``ContentBlock`` and ``RagChunk`` so that kind
+information is preserved through the entire pipeline.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from enum import Enum
 from typing import Optional
 
@@ -31,6 +33,36 @@ class BlockKind(str, Enum):
     TABLE = "table"
     EQUATION = "equation"
     DISCARDED = "discarded"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FetchedDocument — Fetcher output
+# ──────────────────────────────────────────────────────────────────────────────
+
+@dataclass
+class FetchedDocument:
+    """Lightweight wrapper around a local file path, produced by a Fetcher.
+
+    This is the first object in the pipeline.  A Fetcher yields
+    ``FetchedDocument`` instances; a Chef consumes them to produce
+    ``ContentBlock`` lists.
+
+    Attributes:
+        source:    Canonical identifier for the document (absolute path,
+                   URL, S3 URI, …).  Always a ``str`` so it is
+                   JSON-serialisable.
+        path:      Local filesystem path.  ``None`` for cloud/stream sources
+                   that have not yet been materialised.
+        mime_type: MIME type detected at fetch time (e.g. ``"application/pdf"``).
+                   Empty string when unknown.
+        metadata:  Arbitrary key-value pairs injected by the Fetcher
+                   (e.g. ``{"bucket": "…", "etag": "…", "db_id": 42}``).
+    """
+
+    source: str
+    path: Optional[Path]
+    mime_type: str = ""
+    metadata: dict = field(default_factory=dict)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

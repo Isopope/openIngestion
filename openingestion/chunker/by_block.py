@@ -63,7 +63,7 @@ class BlockChunker(BaseChunker):
             # TITLE blocks update running context before being emitted.
             if block.kind is BlockKind.TITLE:
                 title_path = block.text.strip()
-                title_level = block.level or 1
+                title_level = block.title_level or 1
 
             extras: dict = {}
             if block.html:

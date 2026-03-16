@@ -140,7 +140,7 @@ class _SentenceGroup:
         seen: set[int] = set()
         out: list[ContentBlock] = []
         for s in self.sentences:
-            bid = s.block.block_index
+            bid = id(s.block)
             if bid not in seen:
                 seen.add(bid)
                 out.append(s.block)

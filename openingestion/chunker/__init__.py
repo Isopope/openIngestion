@@ -18,12 +18,14 @@ Available chunkers
     See :mod:`openingestion.chunker.by_semantic`.
 """
 from openingestion.chunker.base import BaseChunker
+from openingestion.chunker.by_block import BlockChunker
 from openingestion.chunker.by_semantic import SemanticChunker
 from openingestion.chunker.by_sentence import SentenceChunker
 from openingestion.chunker.by_token import TokenChunker
 
 __all__ = [
     "BaseChunker",
+    "BlockChunker",
     "TokenChunker",
     "SentenceChunker",
     "SemanticChunker",

@@ -1,4 +1,4 @@
-﻿"""Sentence-boundary-aware chunker with token-based size limits.
+"""Sentence-boundary-aware chunker with token-based size limits.
 
 Design inspired by ``chonkie.SentenceChunker`` -- adapted for the openingestion
 CHOMP pipeline (``ContentBlock`` -> ``RagChunk`` with spatial metadata).
@@ -323,8 +323,9 @@ class SentenceChunker(BaseChunker):
 
             seen: dict[int, ContentBlock] = {}
             for s in buf:
-                if s.block.block_index not in seen:
-                    seen[s.block.block_index] = s.block
+                bid = id(s.block)
+                if bid not in seen:
+                    seen[bid] = s.block
             ordered = list(seen.values())
 
             chunks.append(RagChunk(
@@ -360,8 +361,9 @@ class SentenceChunker(BaseChunker):
             text = "".join(s.text for s in buf)
             seen: dict[int, ContentBlock] = {}
             for s in buf:
-                if s.block.block_index not in seen:
-                    seen[s.block.block_index] = s.block
+                bid = id(s.block)
+                if bid not in seen:
+                    seen[bid] = s.block
             ordered = list(seen.values())
             chunks.append(RagChunk(
                 page_content=text,

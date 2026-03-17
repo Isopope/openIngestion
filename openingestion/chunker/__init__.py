@@ -23,6 +23,11 @@ Available chunkers
     Embedding-based semantic similarity chunker with Savitzky-Golay filtering.
     See :mod:`openingestion.chunker.by_semantic`.
 
+``SlumberChunker``
+    LLM-guided agentic chunker (inspired by LumberChunker / chonkie).
+    Uses a Genie (LLM) to detect semantic topic boundaries.
+    See :mod:`openingestion.chunker.by_slumber`.
+
 ``BaseChunker``
     Abstract base class for custom chunker implementations.
 """
@@ -31,6 +36,7 @@ from openingestion.chunker.by_block import BlockChunker
 from openingestion.chunker.by_recursive import RecursiveChunker, RecursiveLevel, RecursiveRules
 from openingestion.chunker.by_semantic import SemanticChunker
 from openingestion.chunker.by_sentence import SentenceChunker
+from openingestion.chunker.by_slumber import SlumberChunker
 from openingestion.chunker.by_token import TokenChunker
 
 __all__ = [
@@ -42,4 +48,5 @@ __all__ = [
     "RecursiveLevel",
     "RecursiveRules",
     "SemanticChunker",
+    "SlumberChunker",
 ]

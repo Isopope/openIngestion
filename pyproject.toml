@@ -1,0 +1,140 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openingestion"
+version = "0.1.0"
+description = "RAG ingestion pipeline — Chef → Chunker → Refinery → Porter"
+requires-python = ">=3.10"
+
+# ── Core (always installed) ───────────────────────────────────────────────────
+# Intentionally minimal — no heavy ML deps required for the base pipeline.
+# All parsers, tokenizers, and advanced chunkers are opt-in extras below.
+dependencies = [
+    "loguru",
+]
+
+# The project root IS the openingestion package (contains __init__.py directly).
+# Explicitly list all sub-packages to avoid setuptools auto-discovery confusion.
+[tool.setuptools.package-dir]
+"openingestion" = "."
+
+[tool.setuptools]
+packages = [
+    "openingestion",
+    "openingestion.chef",
+    "openingestion.chunker",
+    "openingestion.fetcher",
+    "openingestion.genie",
+    "openingestion.porter",
+    "openingestion.refinery",
+    "openingestion.utils",
+]
+
+# ── Optional extras ───────────────────────────────────────────────────────────
+[project.optional-dependencies]
+
+# PDF/image parsing via MinerU (GPU-accelerated, full layout analysis)
+mineru = [
+    "mineru>=2.7.6",
+]
+
+# PDF/image parsing via Docling (IBM, CPU-friendly, no GPU required)
+docling = [
+    "docling",
+]
+
+# SemanticChunker — embedding-based breakpoint detection
+semantic = [
+    "sentence-transformers",
+    "numpy",
+    "scipy",
+]
+
+# WebFetcher — scraping websites rendering them seamlessly as PDFs
+web = [
+    "playwright",
+]
+
+# SharepointFetcher — Microsoft 365, OneDrive and SharePoint ingestion
+sharepoint = [
+    "office365-rest-python-client",
+    "msal",
+]
+
+# SlumberChunker + OpenAIGenie — LLM-guided agentic chunking
+slumber = [
+    "openai",
+    "pydantic",
+    "tenacity",
+    "tqdm",
+]
+
+# Fast Rust-based sentence boundary detection
+chonkie = [
+    "chonkie-core",
+]
+
+# Exact OpenAI-style tokenizer (cl100k_base, o200k_base, …)
+tiktoken = [
+    "tiktoken",
+]
+
+# Fast HuggingFace tokenizers (Rust-based, BPE/WordPiece/…)
+hf-tokenizers = [
+    "tokenizers",
+]
+
+# HuggingFace AutoTokenizer (transformers — heavier, full model loading)
+transformers = [
+    "transformers",
+]
+
+# LangChain output format — ingest(output_format="langchain")
+langchain = [
+    "langchain-core",
+]
+
+# LlamaIndex output format — ingest(output_format="llamaindex")
+llamaindex = [
+    "llama-index-core",
+]
+
+# ── Convenience bundles ───────────────────────────────────────────────────────
+
+# Everything needed for a Docling + semantic pipeline (no GPU)
+cpu = [
+    "openingestion[docling]",
+    "openingestion[semantic]",
+    "openingestion[tiktoken]",
+]
+
+# Everything needed for a MinerU + full pipeline
+gpu = [
+    "openingestion[mineru]",
+    "openingestion[semantic]",
+    "openingestion[tiktoken]",
+]
+
+# Full install — every optional feature
+all = [
+    "openingestion[mineru]",
+    "openingestion[docling]",
+    "openingestion[semantic]",
+    "openingestion[slumber]",
+    "openingestion[chonkie]",
+    "openingestion[tiktoken]",
+    "openingestion[hf-tokenizers]",
+    "openingestion[transformers]",
+    "openingestion[langchain]",
+    "openingestion[llamaindex]",
+]
+
+# ── Dev / test dependencies ───────────────────────────────────────────────────
+dev = [
+    "pytest>=8",
+    "pytest-mock",
+    "ruff",
+    "mypy",
+]

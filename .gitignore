@@ -1,0 +1,5 @@
+openingestion.egg-info/
+.venv/
+__pycache__/
+*.pyc
+*.pyo

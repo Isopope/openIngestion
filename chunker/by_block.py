@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from openingestion.chunker.base import BaseChunker, _page_content_for
+from openingestion.chunker.base import BaseChunker, _advance_title_context, _page_content_for
 from openingestion.document import BlockKind, ContentBlock, RagChunk
 
 
@@ -51,6 +51,7 @@ class BlockChunker(BaseChunker):
             List of RagChunks, one per non-discarded block.
         """
         chunks: list[RagChunk] = []
+        title_stack: list[str] = []
         title_path: str = ""
         title_level: int = 0
 
@@ -62,8 +63,9 @@ class BlockChunker(BaseChunker):
 
             # TITLE blocks update running context before being emitted.
             if block.kind is BlockKind.TITLE:
-                title_path = block.text.strip()
-                title_level = block.title_level or 1
+                title_stack, title_path, title_level = _advance_title_context(
+                    title_stack, block
+                )
 
             extras: dict = {}
             if block.html:

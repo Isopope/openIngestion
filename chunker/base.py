@@ -48,6 +48,23 @@ def _page_content_for(block: ContentBlock) -> str:
     return ""
 
 
+def _advance_title_context(
+    title_stack: list[str],
+    block: ContentBlock,
+) -> tuple[list[str], str, int]:
+    """Return the updated hierarchical title context after a TITLE block.
+
+    ``title_path`` is represented as a breadcrumb of heading ancestors:
+    ``"Chapter > Section > Subsection"``.
+    """
+    level = block.title_level or 1
+    new_stack = title_stack[: max(level - 1, 0)]
+    text = block.text.strip()
+    if text:
+        new_stack.append(text)
+    return new_stack, " > ".join(new_stack), level
+
+
 class BaseChunker(ABC):
     """Base class for all Chunkers.
 

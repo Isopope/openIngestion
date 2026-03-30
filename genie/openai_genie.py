@@ -129,11 +129,15 @@ class OpenAIGenie(BaseGenie):
     # ------------------------------------------------------------------
 
     @_retry_on_openai_errors
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, max_tokens: int | None = None) -> str:
         """Generate a plain-text response for *prompt*."""
+        kwargs: dict[str, Any] = {}
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
+            **kwargs,
         )
         content = response.choices[0].message.content
         if content is None:
@@ -201,11 +205,15 @@ class OpenAIGenie(BaseGenie):
     # ------------------------------------------------------------------
 
     @_retry_on_openai_errors
-    async def agenerate(self, prompt: str) -> str:
+    async def agenerate(self, prompt: str, max_tokens: int | None = None) -> str:
         """Async variant of :meth:`generate`."""
+        kwargs: dict[str, Any] = {}
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
         response = await self.async_client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
+            **kwargs,
         )
         content = response.choices[0].message.content
         if content is None:

@@ -36,7 +36,7 @@ def _find_mineru_output(pdf: Path, output_root: Path):
 def _section(title: str) -> None:
     print(f"\n{'─' * 60}\n  {title}\n{'─' * 60}")
 
-    def run(force_reparse: bool = False, skip_contextual: bool = False) -> None:
+def run(force_reparse: bool = False, skip_contextual: bool = False) -> None:
     from openingestion.chef.mineru_chef import MinerUChef
     from openingestion.chunker import SentenceChunker
     from openingestion.refinery import ContextualRagRefinery, RagRefinery, VisionRefinery
@@ -135,7 +135,7 @@ def _section(title: str) -> None:
 
         genie = OpenAIGenie(
             model="gpt-4o-mini",
-            api_key="votre_cle_api_ici"  # <-- REMPLISSEZ ICI AVEC VOTRE CLE API OPENAI
+            api_key=OPENAI_API_KEY
         )
 
         ctx_refinery = ContextualRagRefinery(

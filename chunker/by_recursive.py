@@ -34,7 +34,7 @@ from typing import Literal, Optional, Union
 
 from loguru import logger
 
-from openingestion.chunker.base import BaseChunker, _page_content_for
+from openingestion.chunker.base import BaseChunker, _advance_title_context, _page_content_for
 from openingestion.document import BlockKind, ContentBlock, RagChunk
 from openingestion.utils.tokenizer import AutoTokenizer, BaseTokenizer
 
@@ -397,6 +397,7 @@ class RecursiveChunker(BaseChunker):
             already populated.
         """
         chunks: list[RagChunk] = []
+        title_stack: list[str] = []
         title_path: str = ""
         title_level: int = 0
 
@@ -415,8 +416,9 @@ class RecursiveChunker(BaseChunker):
                 self._flush_buffer(text_spans, source, title_path, title_level, chunks)
                 text_spans = []
                 offset = 0
-                title_path = block.text.strip()
-                title_level = block.title_level or 1
+                title_stack, title_path, title_level = _advance_title_context(
+                    title_stack, block
+                )
                 # Emit the title block itself as a standalone chunk
                 chunks.append(RagChunk(
                     page_content=block.text,

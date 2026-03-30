@@ -73,7 +73,9 @@ __all__ = ["ingest", "ingest_from_output", "ingest_from_json"]
 # Strategy registry
 # ──────────────────────────────────────────────────────────────────────────────
 
-_STRATEGIES = frozenset(["by_block", "by_token", "by_sentence", "by_semantic"])
+_STRATEGIES = frozenset(
+    ["by_block", "by_token", "by_sentence", "by_semantic", "by_slumber", "slumber"]
+)
 _OUTPUT_FORMATS = frozenset(["chunks", "dicts", "langchain", "llamaindex"])
 
 
@@ -97,6 +99,7 @@ def _build_chunker(
         return SentenceChunker(
             chunk_size=max_tokens,
             chunk_overlap=overlap_tokens,
+            tokenizer=tokenizer,
             include_discarded=include_discarded,
         )
     if strategy == "by_semantic":
@@ -244,7 +247,7 @@ def ingest(
     *,
     # --- pipeline ---
     parser: Literal["mineru", "docling"] = "mineru",
-    strategy: Literal["by_block", "by_token", "by_sentence", "by_semantic"] = "by_token",
+    strategy: Literal["by_block", "by_token", "by_sentence", "by_semantic", "by_slumber", "slumber"] = "by_token",
     # --- chunking ---
     max_tokens: int = 512,
     overlap_tokens: int = 64,
@@ -335,7 +338,7 @@ def ingest(
 def ingest_from_output(
     output_dir: str | os.PathLike,
     *,
-    strategy: Literal["by_block", "by_token", "by_sentence", "by_semantic"] = "by_token",
+    strategy: Literal["by_block", "by_token", "by_sentence", "by_semantic", "by_slumber", "slumber"] = "by_token",
     max_tokens: int = 512,
     overlap_tokens: int = 64,
     include_tables: bool = True,
@@ -387,7 +390,7 @@ def ingest_from_output(
 def ingest_from_json(
     json_path: str | os.PathLike,
     *,
-    strategy: Literal["by_block", "by_token", "by_sentence", "by_semantic"] = "by_token",
+    strategy: Literal["by_block", "by_token", "by_sentence", "by_semantic", "by_slumber", "slumber"] = "by_token",
     max_tokens: int = 512,
     overlap_tokens: int = 64,
     include_tables: bool = True,

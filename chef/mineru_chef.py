@@ -288,22 +288,6 @@ class MinerUChef(BaseChef):
 
         logger.debug("map_to_blocks → {} ContentBlocks", len(blocks))
         return blocks
-    
-    def parse_json(self, json_path: str) -> list[ContentBlock]:
-        """Read a *_content_list.json file directly.
-
-        Args:
-            json_path: Absolute path to the JSON file.
-
-        Returns:
-            List of ContentBlocks.
-
-        """
-        with open(json_path, encoding="utf-8") as f:
-            raw_data = json.load(f)
-        logger.info("MinerUChef : {} blocs lus depuis {}", len(raw_data), json_path)
-        return self.map_to_blocks(raw_data)
-
     def parse_file(self, pdf_path: str, output_dir: str = "output") -> list[ContentBlock]:
         """Run MinerU on a raw PDF file.
 

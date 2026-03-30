@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from openingestion.chunker.base import BaseChunker, _page_content_for
+from openingestion.chunker.base import BaseChunker, _advance_title_context, _page_content_for
 from openingestion.document import BlockKind, ContentBlock, RagChunk
 from openingestion.utils.tokenizer import AutoTokenizer, BaseTokenizer
 
@@ -118,6 +118,7 @@ class TokenChunker(BaseChunker):
             already populated.
         """
         chunks: list[RagChunk] = []
+        title_stack: list[str] = []
         title_path: str = ""
         title_level: int = 0
 
@@ -184,8 +185,9 @@ class TokenChunker(BaseChunker):
             if block.kind == BlockKind.TITLE:
                 _flush()
                 _reset()                    # titles open a new section context
-                title_path = block.text.strip()
-                title_level = block.title_level
+                title_stack, title_path, title_level = _advance_title_context(
+                    title_stack, block
+                )
                 chunks.append(
                     _make_standalone_chunk(
                         block, source, title_path, title_level, len(chunks)

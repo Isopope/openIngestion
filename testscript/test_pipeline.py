@@ -48,7 +48,7 @@ def _section(title: str) -> None:
 
 def run(force_reparse: bool = False, skip_contextual: bool = False) -> None:
     from openingestion.chef.mineru_chef import MinerUChef
-    from openingestion.chunker import MultipassChunker, SentenceChunker, TokenChunker
+    from openingestion.chunker import MultipassChunker
     from openingestion.refinery import ContextualRagRefinery, RagRefinery
     from openingestion.porter import JSONPorter
 
@@ -80,7 +80,7 @@ def run(force_reparse: bool = False, skip_contextual: bool = False) -> None:
     t_chunk = time.perf_counter()
 
     chunker = MultipassChunker()
-    chunks = chunker(sentence, source=str(PDF_PATH))
+    chunks = chunker(blocks, source=str(PDF_PATH))
 
     elapsed_chunk = time.perf_counter() - t_chunk
     counts_gran = Counter(c.granularity for c in chunks)

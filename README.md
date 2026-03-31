@@ -20,6 +20,23 @@ pip install -e .
 > `from openingestion import …` se résolvent correctement depuis les scripts
 > et notebooks, car la racine du dépôt *est* le package Python.
 
+### 1bis. Setup Windows / PowerShell
+
+Le projet demande `Python >= 3.10`. Sur Windows, un setup simple ressemble Ã  :
+
+```powershell
+py -3.14 -m venv .venv
+. .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+Pour un premier run CPU sans GPU, ajoutez Docling :
+
+```powershell
+python -m pip install -e ".[docling]"
+```
+
 ### 2. Extras optionnels
 
 ```bash

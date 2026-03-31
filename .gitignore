@@ -3,3 +3,7 @@ openingestion.egg-info/
 __pycache__/
 *.pyc
 *.pyo
+testscript/__pycache__/
+testscript/output/
+refinery/__pycache__/
+mineru.local.json

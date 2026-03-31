@@ -45,7 +45,7 @@ protocol as the rest of the pipeline.  The built-in default is ``len(text)//4``.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, Optional, Union
 
 from loguru import logger
@@ -68,7 +68,21 @@ class _Sentence:
 
     text: str
     token_count: int
-    block: ContentBlock     # originating block (for spatial metadata)
+    block: ContentBlock
+    blocks: list[ContentBlock] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not self.blocks:
+            self.blocks = [self.block]
+
+
+@dataclass
+class _TextSpan:
+    """Character span of one source block inside a merged text run."""
+
+    start: int
+    end: int
+    block: ContentBlock
 
 
 # ------------------------------------------------------------------------------
@@ -306,6 +320,77 @@ class SentenceChunker(BaseChunker):
             for s in raw
         ]
 
+    def _prepare_sentences_from_run(
+        self,
+        blocks: list[ContentBlock],
+    ) -> list[_Sentence]:
+        """Split one merged text run and preserve multi-block provenance."""
+        parts: list[str] = []
+        spans: list[_TextSpan] = []
+        cursor = 0
+
+        for i, block in enumerate(blocks):
+            text = (block.text or "").strip()
+            if not text:
+                continue
+            if parts:
+                parts.append("\n")
+                cursor += 1
+            start = cursor
+            parts.append(text)
+            cursor += len(text)
+            spans.append(_TextSpan(start=start, end=cursor, block=block))
+
+        merged_text = "".join(parts)
+        if not merged_text.strip():
+            return []
+
+        raw_sentences = _split_text(
+            merged_text,
+            self.delim,
+            self.include_delim,
+            self.min_characters_per_sentence,
+        )
+
+        if not raw_sentences:
+            return []
+
+        sentences: list[_Sentence] = []
+        search_start = 0
+
+        for text in raw_sentences:
+            pos = merged_text.find(text, search_start)
+            if pos == -1:
+                pos = merged_text.find(text)
+            if pos == -1:
+                pos = search_start
+            sent_start = pos
+            sent_end = pos + len(text)
+            search_start = sent_end
+
+            contributing: list[ContentBlock] = []
+            seen: set[int] = set()
+            for span in spans:
+                if span.end > sent_start and span.start < sent_end:
+                    bid = id(span.block)
+                    if bid not in seen:
+                        seen.add(bid)
+                        contributing.append(span.block)
+
+            if not contributing and spans:
+                contributing = [spans[0].block]
+
+            sentences.append(
+                _Sentence(
+                    text=text,
+                    token_count=self._tok.count_tokens(text),
+                    block=contributing[0],
+                    blocks=contributing,
+                )
+            )
+
+        return sentences
+
     # --------------------------------------------------------------------------
 
     def chunk(self, blocks: list[ContentBlock], source: str) -> list[RagChunk]:  # noqa: C901
@@ -341,9 +426,10 @@ class SentenceChunker(BaseChunker):
 
             seen: dict[int, ContentBlock] = {}
             for s in buf:
-                bid = id(s.block)
-                if bid not in seen:
-                    seen[bid] = s.block
+                for block in s.blocks:
+                    bid = id(block)
+                    if bid not in seen:
+                        seen[bid] = block
             ordered = list(seen.values())
 
             chunks.append(RagChunk(
@@ -379,9 +465,10 @@ class SentenceChunker(BaseChunker):
             text = "".join(s.text for s in buf)
             seen: dict[int, ContentBlock] = {}
             for s in buf:
-                bid = id(s.block)
-                if bid not in seen:
-                    seen[bid] = s.block
+                for block in s.blocks:
+                    bid = id(block)
+                    if bid not in seen:
+                        seen[bid] = block
             ordered = list(seen.values())
             chunks.append(RagChunk(
                 page_content=text,
@@ -415,14 +502,39 @@ class SentenceChunker(BaseChunker):
                 kind=sent.block.kind,
                 title_path=title_path,
                 title_level=title_level,
-                position_int=[[sent.block.page_idx, *sent.block.bbox]],
-                block_indices=[sent.block.block_index],
-                reading_order=sent.block.reading_order,
+                position_int=[[b.page_idx, *b.bbox] for b in sent.blocks],
+                block_indices=[b.block_index for b in sent.blocks],
+                reading_order=min(b.reading_order for b in sent.blocks),
                 chunk_index=len(chunks),
                 extras={},
             ))
 
+        def _flush_text_run(text_run: list[ContentBlock]) -> None:
+            """Split one same-section text run into sentence units."""
+            nonlocal buf, buf_tokens
+            if not text_run:
+                return
+
+            sentences = self._prepare_sentences_from_run(text_run)
+
+            for sent in sentences:
+                if sent.token_count > self.chunk_size:
+                    _emit()
+                    _force_emit()
+                    _append_sentence_chunk(sent)
+                    continue
+
+                if buf_tokens + sent.token_count > self.chunk_size:
+                    _emit()
+                    if buf_tokens + sent.token_count > self.chunk_size:
+                        _force_emit()
+
+                buf.append(sent)
+                buf_tokens += sent.token_count
+
         # ---- main loop -------------------------------------------------------
+
+        text_run: list[ContentBlock] = []
 
         for block in blocks:
             if block.kind == BlockKind.DISCARDED:
@@ -430,6 +542,8 @@ class SentenceChunker(BaseChunker):
                     continue
 
             if block.kind == BlockKind.TITLE:
+                _flush_text_run(text_run)
+                text_run = []
                 # Hard boundary: flush whatever was accumulating in the buffer
                 # (even if it doesn't satisfy min_sentences_per_chunk yet),
                 # then fully reset — no overlap is carried over to the new
@@ -448,6 +562,8 @@ class SentenceChunker(BaseChunker):
                 continue
 
             if block.kind in _STANDALONE:
+                _flush_text_run(text_run)
+                text_run = []
                 _force_emit()
                 _reset()
                 chunks.append(
@@ -461,34 +577,9 @@ class SentenceChunker(BaseChunker):
             if not raw_text:
                 continue
 
-            sentences = self._prepare_sentences(raw_text, block)
+            text_run.append(block)
 
-            for sent in sentences:
-                # 1. Giant sentence: alone exceeds chunk_size -> emit as-is.
-                #    _emit() carries the normal overlap to the *next* window;
-                #    _force_emit() then flushes any overlap remainder as its
-                #    own chunk so that *no content is silently discarded*.
-                if sent.token_count > self.chunk_size:
-                    _emit()
-                    _force_emit()          # guarantees buffer is truly empty
-                    _append_sentence_chunk(sent)
-                    continue
-
-                # 2. Normal overflow: buffer + new sentence > chunk_size.
-                if buf_tokens + sent.token_count > self.chunk_size:
-                    _emit()                # buffer trimmed to overlap tail
-
-                    # 3. CRITICAL: overlap tail + new sentence still > chunk_size
-                    #    (e.g. overlap=128 tokens + sentence=400 tokens > 512).
-                    #    _force_emit() promotes the overlap tail to its own chunk
-                    #    rather than silently dropping it, then clears the buffer.
-                    if buf_tokens + sent.token_count > self.chunk_size:
-                        _force_emit()
-
-                # 4. Buffer is now guaranteed to be < chunk_size.
-                buf.append(sent)
-                buf_tokens += sent.token_count
-
+        _flush_text_run(text_run)
         _force_emit()
 
         # ---- final pass: chunk_index + prev/next links ----------------------

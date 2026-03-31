@@ -93,7 +93,7 @@ Here is a document:
 </document>
 
 Please give a short succinct summary of the entire document in 2-3 sentences. \
-Answer ONLY with the summary, no preamble or conclusion.\
+Answer ONLY with the summary, no preamble or conclusion. Respond in the same language as the document, or in french if no language is detected.\
 """
 
 # The document prefix is sent as the cacheable `context` arg of generate_contextual.
@@ -114,7 +114,7 @@ Here is a chunk from that document:
 
 Please give a short succinct context (1-2 sentences) explaining what this chunk \
 is about and how it fits in the overall document, for the purpose of improving \
-search retrieval. Answer ONLY with the context, no preamble.\
+search retrieval. Answer ONLY with the context, no preamble.Respond in the same language as the document, or in french if no language is detected.\
 """
 
 

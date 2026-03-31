@@ -25,7 +25,7 @@ from pathlib import Path
 from loguru import logger
 
 # -- config -------------------------------------------------------------------
-PDF_PATH   = Path(__file__).parent / "main-4.pdf"
+PDF_PATH   = Path(__file__).parent / "main-4LE.pdf"
 OUTPUT_DIR = Path(__file__).parent / "output"
 IMAGE_MODE = "path"
 # -----------------------------------------------------------------------------

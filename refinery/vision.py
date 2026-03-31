@@ -56,7 +56,7 @@ class VisionRefinery(BaseRefinery):
             ),
             BlockKind.IMAGE: (
                 "Describe this image in detail. Extract any visible text, translate flowcharts "
-                "into textual steps, and describe diagrams thoroughly."
+                "into textual steps, and describe diagrams thoroughly. Respond in the same language as the text in the image, or in french if no text is detected."
             ),
         }
 

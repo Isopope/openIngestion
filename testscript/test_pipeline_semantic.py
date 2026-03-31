@@ -11,7 +11,7 @@ from loguru import logger
 from openingestion.genie import OpenAIGenie
 
 # -- config -------------------------------------------------------------------
-PDF_PATH   = Path(__file__).parent / "main-4.pdf"
+PDF_PATH   = Path(__file__).parent / "main-4LE.pdf"
 OUTPUT_DIR = Path(__file__).parent / "output"
 IMAGE_MODE = "path"
 # -----------------------------------------------------------------------------
@@ -113,7 +113,7 @@ def run(force_reparse: bool = False, skip_contextual: bool = False) -> None:
         elapsed_ctx = time.perf_counter() - t_ctx
         with_summary = sum(1 for c in chunks if c.doc_summary)
         with_context = sum(1 for c in chunks if c.chunk_context)
-        print(f"  Appels mock genie : {call_count['n']}  ({elapsed_ctx:.2f}s)")
+        print(f"  Appels OpenAIGenie : OK  ({elapsed_ctx:.2f}s)")
         print(f"  doc_summary renseigne   : {with_summary}/{len(chunks)} chunks")
         print(f"  chunk_context renseigne : {with_context}/{len(chunks)} chunks")
         assert with_summary > 0, "ERREUR : aucun doc_summary genere"

@@ -29,7 +29,7 @@ from pathlib import Path
 
 from loguru import logger
 
-PDF_PATH = Path(__file__).parent / "main-4.pdf"
+PDF_PATH = Path(__file__).parent / "main-4LE.pdf"
 
 # Couleurs par granularite (pour le multipass)
 _GRAN_LEGEND = {

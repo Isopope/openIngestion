@@ -21,8 +21,8 @@ from pathlib import Path
 from loguru import logger
 
 # ── config ────────────────────────────────────────────────────────────────────
-PDF_PATH  = Path(__file__).parent / "main-4.pdf"
-STRATEGY  = "by_slumber"
+PDF_PATH  = Path(__file__).parent / "main-4LE.pdf"
+STRATEGY  = "by_sentence"
 IMAGE_MODE = "path"
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -30,6 +30,7 @@ IMAGE_MODE = "path"
 def run(pdf: Path, strategy: str) -> None:
     from openingestion import ingest
     from openingestion.porter import JSONPorter
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
 
     if not pdf.exists():
         logger.error("PDF introuvable : {}", pdf)
@@ -38,6 +39,8 @@ def run(pdf: Path, strategy: str) -> None:
     logger.info("DoclingChef — parsing de {} (stratégie={})", pdf.name, strategy)
 
     t0 = time.perf_counter()
+    opts = PdfPipelineOptions()
+    opts.do_ocr = False
 
     chunks = ingest(
         pdf,
@@ -45,6 +48,7 @@ def run(pdf: Path, strategy: str) -> None:
         strategy=strategy,
         image_mode=IMAGE_MODE,
         infer_captions=True,
+        docling_pipeline_options=opts,
     )
 
     elapsed = time.perf_counter() - t0

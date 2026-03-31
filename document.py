@@ -28,6 +28,7 @@ class BlockKind(str, Enum):
     """
 
     TEXT = "text"
+    LIST = "list"
     TITLE = "title"
     IMAGE = "image"
     TABLE = "table"

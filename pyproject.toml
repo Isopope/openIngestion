@@ -37,7 +37,7 @@ packages = [
 
 # PDF/image parsing via MinerU (GPU-accelerated, full layout analysis)
 mineru = [
-    "mineru>=2.7.6",
+    "mineru[pipeline]>=2.7.6",
 ]
 
 # PDF/image parsing via Docling (IBM, CPU-friendly, no GPU required)

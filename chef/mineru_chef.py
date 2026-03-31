@@ -43,6 +43,33 @@ def _is_parseable(path: Path) -> bool:
     return path.is_file() and _mime(path) in _MINERU_MIME
 
 
+def _extract_block_text(item: dict) -> str:
+    """Best-effort plain-text extraction from a MinerU content-list item.
+
+    MinerU uses different payload keys depending on the block subtype.
+    Classic paragraph/title blocks usually expose ``text`` while code blocks
+    often carry their payload in ``code_body``.  We keep the extraction small
+    and conservative here so downstream chunkers can still see the text
+    content even when MinerU changes the exact subtype layout.
+    """
+    list_items = item.get("list_items")
+    if isinstance(list_items, list):
+        values = [str(v).strip() for v in list_items if str(v).strip()]
+        if values:
+            return "\n".join(values)
+
+    for key in (
+        "text",
+        "code_body",
+        "table_body",
+        "html",
+    ):
+        value = item.get(key, "")
+        if isinstance(value, str) and value.strip():
+            return value
+    return ""
+
+
 class MinerUChef(BaseChef):
     """Chef that ingests MinerU output **or** raw PDF/image files.
 
@@ -244,14 +271,21 @@ class MinerUChef(BaseChef):
 
         for idx, item in enumerate(raw_items):
             m_type = item.get("type", "text")
+            sub_type = item.get("sub_type", "")
 
             kind = BlockKind.TEXT
             if m_type == "image":
                 kind = BlockKind.IMAGE
+            elif m_type == "list":
+                kind = BlockKind.LIST
             elif m_type == "table":
                 kind = BlockKind.TABLE
+            elif m_type == "equation":
+                kind = BlockKind.EQUATION
             elif m_type == "discarded":
                 kind = BlockKind.DISCARDED
+            elif m_type == "code" or sub_type == "code":
+                kind = BlockKind.TEXT
 
             title_level = item.get("text_level") or 0
             if title_level > 0:
@@ -263,17 +297,19 @@ class MinerUChef(BaseChef):
             captions = (
                 item.get("image_caption")
                 or item.get("table_caption")
+                or item.get("code_caption")
                 or []
             )
             footnotes = (
                 item.get("image_footnote")
                 or item.get("table_footnote")
+                or item.get("code_footnote")
                 or []
             )
 
             blocks.append(ContentBlock(
                 kind=kind,
-                text=item.get("text", ""),
+                text=_extract_block_text(item),
                 page_idx=page,
                 bbox=item.get("bbox", [0, 0, 0, 0]),
                 title_level=title_level,

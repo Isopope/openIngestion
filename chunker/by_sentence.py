@@ -199,6 +199,34 @@ def _make_standalone_chunk(
     )
 
 
+def _render_sentences(sentences: list[_Sentence]) -> str:
+    """Rebuild chunk text while preserving readable separators.
+
+    Sentence splitting strips leading/trailing whitespace on the fallback path,
+    so concatenating with ``"".join(...)`` can silently swallow spaces and
+    line breaks between fragments.  We re-insert a plain space when two
+    neighboring fragments would otherwise collapse into one token.
+    """
+    parts: list[str] = []
+
+    for sent in sentences:
+        text = sent.text.strip()
+        if not text:
+            continue
+
+        if parts:
+            prev = parts[-1]
+            if (
+                not prev.endswith((" ", "\n", "\t", "(", "[", "{", "/", "-"))
+                and not text.startswith((" ", "\n", "\t", ".", ",", ";", ":", "!", "?", ")", "]", "}", "/", "-"))
+            ):
+                parts.append(" ")
+
+        parts.append(text)
+
+    return "".join(parts)
+
+
 # ------------------------------------------------------------------------------
 # SentenceChunker
 # ------------------------------------------------------------------------------
@@ -422,7 +450,7 @@ class SentenceChunker(BaseChunker):
             if len(buf) < self.min_sentences_per_chunk:
                 return   # keep accumulating
 
-            text = "".join(s.text for s in buf)
+            text = _render_sentences(buf)
 
             seen: dict[int, ContentBlock] = {}
             for s in buf:
@@ -462,7 +490,7 @@ class SentenceChunker(BaseChunker):
             nonlocal buf, buf_tokens
             if not buf:
                 return
-            text = "".join(s.text for s in buf)
+            text = _render_sentences(buf)
             seen: dict[int, ContentBlock] = {}
             for s in buf:
                 for block in s.blocks:

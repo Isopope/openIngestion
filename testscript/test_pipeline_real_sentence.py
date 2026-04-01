@@ -16,9 +16,8 @@ from loguru import logger
 # CONFIGURATION
 # ==============================================================================
 # Ajoutez votre cle API OpenAI ci-dessous pour activer le Contextual RAG
-OPENAI_API_KEY = "VOTRE_CLE_API_ICI"  # <-- REMPLISSEZ ICI AVEC VOTRE CLE API OPENAI
-
-PDF_PATH   = Path(__file__).parent / "main-4.pdf"
+OPENAI_API_KEY = "votre_cle_api_ici"
+PDF_PATH   = Path(__file__).parent / "livretEtudiant.pdf"
 OUTPUT_DIR = Path(__file__).parent / "output"
 IMAGE_MODE = "path"
 # ==============================================================================

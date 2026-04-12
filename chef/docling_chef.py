@@ -336,7 +336,7 @@ class DoclingChef(BaseChef):
             html = ""
             if kind == BlockKind.TABLE:
                 try:
-                    html = item.export_to_html()
+                    html = item.export_to_html(doc)
                 except Exception:
                     try:
                         html = item.export_to_markdown()

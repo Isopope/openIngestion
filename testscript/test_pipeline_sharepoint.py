@@ -239,7 +239,7 @@ def run(
                 summary_max_tokens=150,
                 context_max_tokens=100,
             )
-            chunks = ctx_refinery.enrich(chunks)
+           # chunks = ctx_refinery.enrich(chunks)
 
             elapsed_ctx = time.perf_counter() - t_ctx
             with_summary = sum(1 for c in chunks if c.doc_summary)

@@ -6,13 +6,34 @@ build-backend = "setuptools.build_meta"
 name = "openingestion"
 version = "0.1.0"
 description = "RAG ingestion pipeline — Chef → Chunker → Refinery → Porter"
+readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "openingestion contributors" },
+]
+keywords = ["rag", "ingestion", "chunking", "pdf", "nlp", "llm", "mineru", "docling", "vector-store"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Indexing",
+]
 
 # ── Core (always installed) ───────────────────────────────────────────────────
 # Intentionally minimal — no heavy ML deps required for the base pipeline.
 # All parsers, tokenizers, and advanced chunkers are opt-in extras below.
 dependencies = [
     "loguru",
+    "chonkie-core",
 ]
 
 # The project root IS the openingestion package (contains __init__.py directly).
@@ -71,11 +92,6 @@ slumber = [
     "tqdm",
 ]
 
-# Fast Rust-based sentence boundary detection
-chonkie = [
-    "chonkie-core",
-]
-
 # Exact OpenAI-style tokenizer (cl100k_base, o200k_base, …)
 tiktoken = [
     "tiktoken",
@@ -110,25 +126,24 @@ cpu = [
     "openingestion[tiktoken]",
 ]
 
-# Everything needed for a MinerU + full pipeline
+# MinerU (core) + semantic chunking + exact tokenizer
 gpu = [
-    "openingestion[mineru]",
     "openingestion[semantic]",
     "openingestion[tiktoken]",
 ]
 
 # Full install — every optional feature
 all = [
-    "openingestion[mineru]",
     "openingestion[docling]",
     "openingestion[semantic]",
     "openingestion[slumber]",
-    "openingestion[chonkie]",
     "openingestion[tiktoken]",
     "openingestion[hf-tokenizers]",
     "openingestion[transformers]",
     "openingestion[langchain]",
     "openingestion[llamaindex]",
+    "openingestion[web]",
+    "openingestion[sharepoint]",
 ]
 
 # ── Dev / test dependencies ───────────────────────────────────────────────────
@@ -137,4 +152,10 @@ dev = [
     "pytest-mock",
     "ruff",
     "mypy",
+    "build",
+    "twine",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/Isopope/openIngestion.git"
+"Bug Tracker" = "https://github.com/Isopope/openIngestion/issues"

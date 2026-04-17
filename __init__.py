@@ -61,7 +61,6 @@ from typing import Any, Literal
 from loguru import logger
 
 from openingestion.document import RagChunk
-from openingestion.chef.mineru_chef import MinerUChef
 from openingestion.chunker.by_block import BlockChunker
 from openingestion.chunker.by_token import TokenChunker
 from openingestion.chunker.by_sentence import SentenceChunker
@@ -307,6 +306,12 @@ def ingest(
         from openingestion.chef.docling_chef import DoclingChef
         chef = DoclingChef()
     else:
+        try:
+            from openingestion.chef.mineru_chef import MinerUChef
+        except ImportError as exc:
+            raise ImportError(
+                "parser='mineru' requires MinerU: pip install openingestion[mineru]"
+            ) from exc
         chef = MinerUChef(output_dir=mineru_output_dir, mineru_backend=backend)
     blocks = chef.process(source)
 
@@ -365,6 +370,12 @@ def ingest_from_output(
         chunks = ingest_from_output("./output/rapport/auto/")
     """
     output_dir = Path(output_dir)
+    try:
+        from openingestion.chef.mineru_chef import MinerUChef
+    except ImportError as exc:
+        raise ImportError(
+            "ingest_from_output() requires MinerU: pip install openingestion[mineru]"
+        ) from exc
     chef = MinerUChef()
     blocks = chef.process(output_dir)
 
@@ -416,6 +427,12 @@ def ingest_from_json(
         chunks = ingest_from_json("./output/rapport/auto/rapport_content_list.json")
     """
     json_path = Path(json_path)
+    try:
+        from openingestion.chef.mineru_chef import MinerUChef
+    except ImportError as exc:
+        raise ImportError(
+            "ingest_from_json() requires MinerU: pip install openingestion[mineru]"
+        ) from exc
     chef = MinerUChef()
     blocks = chef.process(json_path)
 

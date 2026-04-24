@@ -247,20 +247,49 @@ class MinerUChef(BaseChef):
             backend=self.mineru_backend,
         )
 
-        # MinerU writes to output_dir/<stem>/auto/
-        candidate = self.output_dir / file_path.stem / "auto"
-        if not candidate.is_dir():
-            # Fallback: search only within the expected stem subtree to avoid
-            # picking up output from a previously processed different document.
-            stem_dir = self.output_dir / file_path.stem
-            if stem_dir.is_dir():
-                for sub in stem_dir.rglob("*_content_list.json"):
-                    return sub.parent
-            raise FileNotFoundError(
-                f"MinerU ran but no *_content_list.json found under {candidate}. "
-                f"Expected output at: {candidate}"
-            )
-        return candidate
+        # MinerU writes to output_dir/<stem>/<parse_method>/
+        # The sub-directory name depends on the backend:
+        #   pipeline          → auto/
+        #   vlm-*             → vlm/
+        #   hybrid-*          → hybrid_auto/  (or hybrid_<parse_method>)
+        #   office (docx)     → office/
+        # MinerU may also truncate long stems (MAX_TASK_STEM_BYTES=200) and
+        # append _2, _3 … for duplicate stems — so we cannot rely solely on
+        # the original stem.  We resolve the real stem by scanning what MinerU
+        # actually created inside output_dir.
+        parse_method = "vlm" if self.mineru_backend.startswith("vlm-") else (
+            f"hybrid_{self.mineru_backend[7:]}" if self.mineru_backend.startswith("hybrid-") else "auto"
+        )
+        candidate = self.output_dir / file_path.stem / parse_method
+        if candidate.is_dir() and list(candidate.glob("*_content_list.json")):
+            return candidate
+
+        # Fallback: scan the stem subdirectory for any content_list.json,
+        # covering truncated/deduplicated stems and unexpected parse_method names.
+        stem_dir = self.output_dir / file_path.stem
+        if stem_dir.is_dir():
+            for sub in stem_dir.rglob("*_content_list.json"):
+                return sub.parent
+
+        # Last resort: MinerU may have truncated the stem — scan all immediate
+        # subdirs of output_dir for a matching content_list.json that appeared
+        # after this parse call.
+        for stem_candidate in self.output_dir.iterdir():
+            if not stem_candidate.is_dir():
+                continue
+            method_dir = stem_candidate / parse_method
+            if method_dir.is_dir() and list(method_dir.glob("*_content_list.json")):
+                logger.warning(
+                    "MinerUChef: stem mismatch — expected '{}', found '{}'. "
+                    "MinerU may have truncated or deduplicated the filename.",
+                    file_path.stem, stem_candidate.name,
+                )
+                return method_dir
+
+        raise FileNotFoundError(
+            f"MinerU ran but no *_content_list.json found for '{file_path.name}' "
+            f"(backend={self.mineru_backend}, expected dir={candidate})"
+        )
 
     def map_to_blocks(self, raw_items: list[dict]) -> list[ContentBlock]:
         """Map raw content_list items to typed ContentBlocks.

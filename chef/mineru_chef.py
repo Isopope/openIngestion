@@ -250,11 +250,15 @@ class MinerUChef(BaseChef):
         # MinerU writes to output_dir/<stem>/auto/
         candidate = self.output_dir / file_path.stem / "auto"
         if not candidate.is_dir():
-            # Fallback: search for any subdir with a content_list.json
-            for sub in self.output_dir.rglob("*_content_list.json"):
-                return sub.parent
+            # Fallback: search only within the expected stem subtree to avoid
+            # picking up output from a previously processed different document.
+            stem_dir = self.output_dir / file_path.stem
+            if stem_dir.is_dir():
+                for sub in stem_dir.rglob("*_content_list.json"):
+                    return sub.parent
             raise FileNotFoundError(
-                f"MinerU ran but no *_content_list.json found under {self.output_dir}"
+                f"MinerU ran but no *_content_list.json found under {candidate}. "
+                f"Expected output at: {candidate}"
             )
         return candidate
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openingestion"
-version = "0.1.3"
+version = "0.1.4"
 description = "RAG ingestion pipeline — Chef → Chunker → Refinery → Porter"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -56,9 +56,9 @@ packages = [
 # ── Optional extras ───────────────────────────────────────────────────────────
 [project.optional-dependencies]
 
-# PDF/image parsing via MinerU (GPU-accelerated, full layout analysis)
+# PDF/Office/image parsing via MinerU (GPU-accelerated, full layout analysis)
 mineru = [
-    "mineru[pipeline]==3.0.4",
+    "mineru[pipeline]==3.1.0",
 ]
 
 # PDF/image parsing via Docling (IBM, CPU-friendly, no GPU required)

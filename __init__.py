@@ -271,18 +271,18 @@ def ingest(
 
     Accepts any of:
 
-    * A **PDF or image file** — MinerU is called to parse it first.
+    * A **PDF, Office, or image file** — MinerU is called to parse it first.
     * A **MinerU output directory** (contains ``*_content_list.json``) —
       skips parsing, reads the JSON directly.
     * A **``*_content_list.json`` file** — parsed directly.
 
     Args:
-        source:            Path to PDF, image, MinerU output dir, or JSON.
+        source:            Path to PDF, DOCX, PPTX, XLSX, image, MinerU output dir, or JSON.
         strategy:          Chunking strategy (``"by_token"`` default).
         max_tokens:        Max tokens per chunk (``by_token`` / ``by_sentence``).
         overlap_tokens:    Token overlap between chunks.
         backend:           MinerU backend (``"pipeline"`` default).
-        mineru_output_dir: Where MinerU writes output for raw PDFs/images.
+        mineru_output_dir: Where MinerU writes output for raw MinerU-supported files.
         include_tables:    Keep TABLE blocks.
         include_images:    Keep IMAGE blocks.
         include_equations: Keep EQUATION blocks.
@@ -317,7 +317,7 @@ def ingest(
 
     # Determine base dir for image resolution.
     # MinerUChef sets last_output_dir after process() (JSON parent, output dir,
-    # or the dir MinerU actually wrote to for raw PDF/image inputs).
+    # or the dir MinerU actually wrote to for raw MinerU-supported inputs).
     # DoclingChef does not write a MinerU-style image folder → falls back to None.
     img_base = getattr(chef, "last_output_dir", None)
 

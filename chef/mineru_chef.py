@@ -19,6 +19,9 @@ except ImportError:
 # MIME types that MinerU can ingest directly
 _MINERU_MIME = {
     "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "image/png",
     "image/jpeg",
     "image/jpg",
@@ -39,7 +42,7 @@ def _mime(path: Path) -> str:
 
 
 def _is_parseable(path: Path) -> bool:
-    """Return True if *path* is a file MinerU can parse (PDF or image)."""
+    """Return True if *path* is a file MinerU can parse directly."""
     return path.is_file() and _mime(path) in _MINERU_MIME
 
 
@@ -71,14 +74,14 @@ def _extract_block_text(item: dict) -> str:
 
 
 class MinerUChef(BaseChef):
-    """Chef that ingests MinerU output **or** raw PDF/image files.
+    """Chef that ingests MinerU output **or** raw MinerU-supported files.
 
     :meth:`process` is smart: it detects what it receives and routes
     accordingly:
 
     * **MinerU output directory** (contains ``*_content_list.json``) →
       reads the JSON directly (fast, no GPU required).
-    * **Raw PDF or image file** → runs MinerU, then reads the JSON output.
+    * **Raw PDF, Office, or image file** → runs MinerU, then reads the JSON output.
     * **``*_content_list.json`` file** → parsed directly.
     * :class:`~openingestion.document.FetchedDocument` → unwrapped and
       routed via the rules above.
@@ -113,11 +116,11 @@ class MinerUChef(BaseChef):
             FetchedDocument      → unwrap .path, then route as Path
             *_content_list.json  → parse JSON directly
             dir with JSON        → _read_ocr_dir()
-            PDF / image file     → _run_mineru() → _read_ocr_dir()
+            MinerU-supported file → _run_mineru() → _read_ocr_dir()
 
         Args:
             source: A :class:`~openingestion.document.FetchedDocument`,
-                    an absolute path to a PDF/image/JSON file, or a
+                    an absolute path to a MinerU-supported file/JSON file, or a
                     MinerU output directory.
 
         Returns:
@@ -161,7 +164,8 @@ class MinerUChef(BaseChef):
 
         raise ValueError(
             f"Cannot process source: {target}\n"
-            "Expected: MinerU output dir, *_content_list.json, PDF, or image file."
+            "Expected: MinerU output dir, *_content_list.json, or a MinerU-supported file "
+            "(PDF, DOCX, PPTX, XLSX, image)."
         )
 
     def process_batch(
@@ -216,7 +220,7 @@ class MinerUChef(BaseChef):
         """Run MinerU on *file_path* and return the output directory.
 
         Args:
-            file_path: Path to the PDF or image file.
+            file_path: Path to a MinerU-supported source file.
 
         Returns:
             Path to the MinerU output directory containing
@@ -238,11 +242,11 @@ class MinerUChef(BaseChef):
             self.mineru_backend, file_path, self.output_dir,
         )
 
-        pdf_bytes = file_path.read_bytes()
+        file_bytes = file_path.read_bytes()
         do_parse(
             str(self.output_dir),
             pdf_file_names=[file_path.name],
-            pdf_bytes_list=[pdf_bytes],
+            pdf_bytes_list=[file_bytes],
             p_lang_list=[""],
             backend=self.mineru_backend,
         )
@@ -257,38 +261,65 @@ class MinerUChef(BaseChef):
         # append _2, _3 … for duplicate stems — so we cannot rely solely on
         # the original stem.  We resolve the real stem by scanning what MinerU
         # actually created inside output_dir.
-        parse_method = "vlm" if self.mineru_backend.startswith("vlm-") else (
-            f"hybrid_{self.mineru_backend[7:]}" if self.mineru_backend.startswith("hybrid-") else "auto"
-        )
-        candidate = self.output_dir / file_path.stem / parse_method
-        if candidate.is_dir() and list(candidate.glob("*_content_list.json")):
-            return candidate
+        parse_methods: list[str] = []
+        if file_path.suffix.lower() in {".docx", ".pptx", ".xlsx"}:
+            parse_methods.append("office")
+        if self.mineru_backend.startswith("vlm-"):
+            parse_methods.append("vlm")
+        elif self.mineru_backend.startswith("hybrid-"):
+            parse_methods.append(f"hybrid_{self.mineru_backend[7:]}")
+        else:
+            parse_methods.append("auto")
+
+        root_names = [file_path.name, file_path.stem]
+        ordered_roots: list[str] = []
+        for root_name in root_names:
+            if root_name not in ordered_roots:
+                ordered_roots.append(root_name)
+
+        candidates = [
+            self.output_dir / root_name / parse_method
+            for root_name in ordered_roots
+            for parse_method in parse_methods
+        ]
+        for candidate in candidates:
+            if candidate.is_dir() and list(candidate.glob("*_content_list.json")):
+                return candidate
 
         # Fallback: scan the stem subdirectory for any content_list.json,
         # covering truncated/deduplicated stems and unexpected parse_method names.
-        stem_dir = self.output_dir / file_path.stem
-        if stem_dir.is_dir():
-            for sub in stem_dir.rglob("*_content_list.json"):
-                return sub.parent
+        for root_name in ordered_roots:
+            root_dir = self.output_dir / root_name
+            if root_dir.is_dir():
+                for sub in root_dir.rglob("*_content_list.json"):
+                    return sub.parent
 
         # Last resort: MinerU may have truncated the stem — scan all immediate
         # subdirs of output_dir for a matching content_list.json that appeared
         # after this parse call.
+        preferred_dir = self.output_dir / file_path.name
+        if preferred_dir.is_dir():
+            for parse_method in parse_methods:
+                method_dir = preferred_dir / parse_method
+                if method_dir.is_dir() and list(method_dir.glob("*_content_list.json")):
+                    return method_dir
+
         for stem_candidate in self.output_dir.iterdir():
             if not stem_candidate.is_dir():
                 continue
-            method_dir = stem_candidate / parse_method
-            if method_dir.is_dir() and list(method_dir.glob("*_content_list.json")):
-                logger.warning(
-                    "MinerUChef: stem mismatch — expected '{}', found '{}'. "
-                    "MinerU may have truncated or deduplicated the filename.",
-                    file_path.stem, stem_candidate.name,
-                )
-                return method_dir
+            for parse_method in parse_methods:
+                method_dir = stem_candidate / parse_method
+                if method_dir.is_dir() and list(method_dir.glob("*_content_list.json")):
+                    logger.warning(
+                        "MinerUChef: stem mismatch — expected '{}', found '{}'. "
+                        "MinerU may have truncated or deduplicated the filename.",
+                        file_path.stem, stem_candidate.name,
+                    )
+                    return method_dir
 
         raise FileNotFoundError(
             f"MinerU ran but no *_content_list.json found for '{file_path.name}' "
-            f"(backend={self.mineru_backend}, expected dir={candidate})"
+            f"(backend={self.mineru_backend}, expected dirs={candidates})"
         )
 
     def map_to_blocks(self, raw_items: list[dict]) -> list[ContentBlock]:

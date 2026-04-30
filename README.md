@@ -6,7 +6,7 @@
 Fetcher → Chef → Chunker → Refinery → Porter
 ```
 
-**Version:** 0.1.2 · **Python:** 3.10 – 3.13 · **License:** MIT
+**Version:** 0.1.4 · **Python:** 3.10 – 3.13 · **License:** MIT
 
 ---
 
@@ -61,7 +61,7 @@ python -m pip install -e .
 
 | Extra | Installs | Use case |
 |---|---|---|
-| `mineru` | `mineru[pipeline]==3.0.4` | GPU-accelerated PDF parsing (full layout analysis) |
+| `mineru` | `mineru[pipeline]==3.1.0` | GPU-accelerated PDF, Office, and image parsing (full layout analysis) |
 | `docling` | `docling` | CPU-only PDF parsing (IBM Docling, no GPU required) |
 | `semantic` | `sentence-transformers`, `numpy`, `scipy` | `SemanticChunker` — embedding-based splitting |
 | `slumber` | `openai`, `pydantic`, `tenacity`, `tqdm` | `SlumberChunker` + `OpenAIGenie` — LLM-guided chunking |
@@ -106,6 +106,11 @@ from openingestion import ingest, ingest_from_output, ingest_from_json
 
 # Parse a raw PDF with MinerU (requires [mineru] extra)
 chunks = ingest("rapport.pdf")
+
+# Parse native Office documents with MinerU 3.1+
+chunks = ingest("support.docx")
+chunks = ingest("deck.pptx")
+chunks = ingest("tableau.xlsx")
 
 # Skip re-parsing — reuse an existing MinerU output directory
 chunks = ingest_from_output("./output/rapport/auto/")

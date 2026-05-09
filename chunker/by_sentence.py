@@ -294,6 +294,7 @@ class SentenceChunker(BaseChunker):
         self,
         chunk_size: int = 512,
         chunk_overlap: int = 128,
+        reserved_tokens: int = 0,
         min_sentences_per_chunk: int = 1,
         min_characters_per_sentence: int = 12,
         delim: Union[str, list[str]] = None,
@@ -316,6 +317,7 @@ class SentenceChunker(BaseChunker):
 
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        self.reserved_tokens = reserved_tokens
         self.min_sentences_per_chunk = min_sentences_per_chunk
         self.min_characters_per_sentence = min_characters_per_sentence
 
@@ -437,20 +439,57 @@ class SentenceChunker(BaseChunker):
         title_path: str = ""
         title_level: int = 0
 
+        # Deferred TITLE block: instead of emitting a standalone tiny title
+        # chunk, we store it here and prepend its title_path to the first
+        # following text chunk.  If another title or a standalone block
+        # (TABLE/IMAGE/EQUATION) follows with no text in between, we fall
+        # back to emitting the title as a standalone chunk.
+        pending_title_block: ContentBlock | None = None
+        pending_title_prefix: str = ""
+        pending_title_level: int = 0
+        pending_title_tokens: int = 0
+
         buf: list[_Sentence] = []
         buf_tokens: int = 0
 
         # ---- helpers ---------------------------------------------------------
 
+        def _emit_pending_title() -> None:
+            """Emit the deferred TITLE block as a standalone fallback chunk."""
+            nonlocal pending_title_block, pending_title_prefix, pending_title_level, pending_title_tokens
+            if pending_title_block is None:
+                return
+            b = pending_title_block
+            chunks.append(RagChunk(
+                page_content=pending_title_prefix,
+                source=source,
+                kind=BlockKind.TITLE,
+                title_path=pending_title_prefix,
+                title_level=pending_title_level,
+                position_int=[[b.page_idx, *b.bbox]],
+                block_indices=[b.block_index],
+                reading_order=b.reading_order,
+                chunk_index=len(chunks),
+                extras={},
+            ))
+            pending_title_block = None
+            pending_title_prefix = ""
+            pending_title_level = 0
+            pending_title_tokens = 0
+
         def _emit() -> None:
             """Emit the buffer as a chunk, then trim to overlap tail."""
-            nonlocal buf, buf_tokens
+            nonlocal buf, buf_tokens, pending_title_prefix, pending_title_tokens
             if not buf:
                 return
             if len(buf) < self.min_sentences_per_chunk:
                 return   # keep accumulating
 
             text = _render_sentences(buf)
+            if pending_title_prefix:
+                text = f"{pending_title_prefix}\n\n{text}"
+                pending_title_prefix = ""
+                pending_title_tokens = 0
 
             seen: dict[int, ContentBlock] = {}
             for s in buf:
@@ -487,10 +526,14 @@ class SentenceChunker(BaseChunker):
 
         def _force_emit() -> None:
             """Emit regardless of min_sentences_per_chunk (boundary flush)."""
-            nonlocal buf, buf_tokens
+            nonlocal buf, buf_tokens, pending_title_prefix, pending_title_tokens
             if not buf:
                 return
             text = _render_sentences(buf)
+            if pending_title_prefix:
+                text = f"{pending_title_prefix}\n\n{text}"
+                pending_title_prefix = ""
+                pending_title_tokens = 0
             seen: dict[int, ContentBlock] = {}
             for s in buf:
                 for block in s.blocks:
@@ -524,8 +567,13 @@ class SentenceChunker(BaseChunker):
             Used when a sentence alone exceeds ``chunk_size``.  The buffer is
             guaranteed to be empty before this is called.
             """
+            nonlocal pending_title_prefix, pending_title_tokens
+            content = sent.text
+            if pending_title_prefix:
+                content = f"{pending_title_prefix}\n\n{content}"
+                pending_title_prefix = ""
             chunks.append(RagChunk(
-                page_content=sent.text,
+                page_content=content,
                 source=source,
                 kind=sent.block.kind,
                 title_path=title_path,
@@ -546,15 +594,18 @@ class SentenceChunker(BaseChunker):
             sentences = self._prepare_sentences_from_run(text_run)
 
             for sent in sentences:
-                if sent.token_count > self.chunk_size:
+                effective_chunk_size = max(10, self.chunk_size - self.reserved_tokens - pending_title_tokens)
+
+                if sent.token_count > effective_chunk_size:
                     _emit()
                     _force_emit()
                     _append_sentence_chunk(sent)
                     continue
 
-                if buf_tokens + sent.token_count > self.chunk_size:
+                if buf_tokens + sent.token_count > effective_chunk_size:
                     _emit()
-                    if buf_tokens + sent.token_count > self.chunk_size:
+                    effective_chunk_size = max(10, self.chunk_size - self.reserved_tokens - pending_title_tokens)
+                    if buf_tokens + sent.token_count > effective_chunk_size:
                         _force_emit()
 
                 buf.append(sent)
@@ -579,14 +630,17 @@ class SentenceChunker(BaseChunker):
                 # from two distinct sections and hurt retrieval precision.
                 _force_emit()
                 _reset()  # <-- intentional: no overlap past a section boundary
+                # If a previous TITLE was deferred and still has no content,
+                # emit it as standalone before processing the new title.
+                _emit_pending_title()
                 title_stack, title_path, title_level = _advance_title_context(
                     title_stack, block
                 )
-                chunks.append(
-                    _make_standalone_chunk(
-                        block, source, title_path, title_level, len(chunks)
-                    )
-                )
+                # Defer this TITLE: it will be prepended to the next text chunk.
+                pending_title_block = block
+                pending_title_prefix = title_path
+                pending_title_level = title_level
+                pending_title_tokens = self._tok.count_tokens(title_path + "\n\n") if title_path else 0
                 continue
 
             if block.kind in _STANDALONE:
@@ -594,6 +648,9 @@ class SentenceChunker(BaseChunker):
                 text_run = []
                 _force_emit()
                 _reset()
+                # A standalone block (TABLE/IMAGE/EQUATION) cannot absorb a
+                # deferred title — emit the title standalone first.
+                _emit_pending_title()
                 chunks.append(
                     _make_standalone_chunk(
                         block, source, title_path, title_level, len(chunks)
@@ -609,6 +666,9 @@ class SentenceChunker(BaseChunker):
 
         _flush_text_run(text_run)
         _force_emit()
+        # If the document ended with a TITLE that had no content after it,
+        # emit it as a standalone chunk.
+        _emit_pending_title()
 
         # ---- final pass: chunk_index + prev/next links ----------------------
         for i, ch in enumerate(chunks):

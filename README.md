@@ -6,7 +6,7 @@
 Fetcher → Chef → Chunker → Refinery → Porter
 ```
 
-**Version:** 0.1.4 · **Python:** 3.10 – 3.13 · **License:** MIT
+**Version:** 0.1.5 · **Python:** 3.10 – 3.13 · **License:** MIT
 
 ---
 

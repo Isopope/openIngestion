@@ -116,6 +116,7 @@ class MinerUChef(BaseChef):
             FetchedDocument      → unwrap .path, then route as Path
             *_content_list.json  → parse JSON directly
             dir with JSON        → _read_ocr_dir()
+            .txt file            → _read_txt() (no MinerU, split by paragraphs)
             MinerU-supported file → _run_mineru() → _read_ocr_dir()
 
         Args:
@@ -156,6 +157,11 @@ class MinerUChef(BaseChef):
             self.last_output_dir = target
             return self._read_ocr_dir(target)
 
+        if target.is_file() and target.suffix.lower() == ".txt":
+            logger.info("MinerUChef: plain-text file → {}", target)
+            self.last_output_dir = None
+            return self._read_txt(target)
+
         if _is_parseable(target):
             logger.info("MinerUChef: raw file ({}) → launching MinerU → {}", _mime(target), target)
             ocr_dir = self._run_mineru(target)
@@ -164,9 +170,33 @@ class MinerUChef(BaseChef):
 
         raise ValueError(
             f"Cannot process source: {target}\n"
-            "Expected: MinerU output dir, *_content_list.json, or a MinerU-supported file "
+            "Expected: MinerU output dir, *_content_list.json, a .txt file, or a MinerU-supported file "
             "(PDF, DOCX, PPTX, XLSX, image)."
         )
+
+    def _read_txt(self, txt_path: Path) -> list[ContentBlock]:
+        """Read a plain-text file and return one ContentBlock per paragraph.
+
+        Paragraphs are delimited by one or more blank lines.  Since plain
+        text has no page/layout information, all blocks land on page 0 with
+        a full-page bbox.
+        """
+        text = txt_path.read_text(encoding="utf-8", errors="replace")
+        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+        blocks: list[ContentBlock] = []
+        for idx, para in enumerate(paragraphs):
+            blocks.append(
+                ContentBlock(
+                    kind=BlockKind.TEXT,
+                    text=para,
+                    page_idx=0,
+                    bbox=[0, 0, 1000, 1000],
+                    block_index=idx,
+                    reading_order=idx,
+                )
+            )
+        logger.info("MinerUChef: {} paragraph(s) from {}", len(blocks), txt_path)
+        return blocks
 
     def process_batch(
         self,
